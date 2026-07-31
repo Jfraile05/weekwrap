@@ -1,0 +1,22 @@
+{
+  "name": "weekwrap",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Turns a week of GitHub activity into the weekly update you have to write anyway. Lambda + Bedrock Nova + DynamoDB.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "local": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.700.0",
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

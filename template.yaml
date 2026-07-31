@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: WeekWrap - turns a week of GitHub activity into a drafted weekly update.
+
+Parameters:
+  DefaultUsername:
+    Type: String
+    Default: ""
+    Description: GitHub username used by the weekly scheduled run. Leave empty to disable it.
+  ModelId:
+    Type: String
+    Default: us.amazon.nova-lite-v1:0
+    Description: Bedrock inference profile used for drafting.
+  ScheduleExpression:
+    Type: String
+    Default: cron(0 21 ? * FRI *)
+    Description: When the weekly run fires. Default is Friday 21:00 UTC (5pm ET).
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Timeout: 60
+    MemorySize: 512
+    Architectures: [arm64]
+
+Resources:
+  WrapsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  WeekWrapFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: cjs
+        Minify: false
+        Target: node22
+        Sourcemap: false
+        EntryPoints: [src/handler.ts]
+    Properties:
+      Handler: handler.handler
+      CodeUri: ./
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref WrapsTable
+          MODEL_ID: !Ref ModelId
+          DEFAULT_USERNAME: !Ref DefaultUsername
+      FunctionUrlConfig:
+        AuthType: NONE
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WrapsTable
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource:
+                - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${ModelId}
+                - arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0
+      Events:
+        WeeklyRun:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref ScheduleExpression
+            Description: Drafts the weekly update without being asked.
+            Input: '{"scheduled": true}'
+
+Outputs:
+  AppUrl:
+    Description: Public URL of the WeekWrap app.
+    Value: !GetAtt WeekWrapFunctionUrl.FunctionUrl
+  FunctionName:
+    Description: Lambda function name, useful for manual invokes.
+    Value: !Ref WeekWrapFunction
+  TableName:
+    Description: DynamoDB table holding saved wraps.
+    Value: !Ref WrapsTable
