@@ -1,6 +1,6 @@
 import { gather } from "./github.js";
 import { draft } from "./draft.js";
-import { save, history } from "./store.js";
+import { save, history, getProfile, putProfile } from "./store.js";
 import { PAGE } from "./page.js";
 import { userIdFrom } from "./auth.js";
 
@@ -10,6 +10,8 @@ type FunctionUrlEvent = {
   headers?: Record<string, string | undefined>;
   body?: string;
 };
+
+const GITHUB_USERNAME = /^[A-Za-z0-9-]{1,39}$/;
 
 type ScheduledEvent = { scheduled?: true; username?: string; days?: number };
 
@@ -22,11 +24,30 @@ export async function handler(event: FunctionUrlEvent & ScheduledEvent) {
     return { statusCode: 200, headers: { "content-type": "text/html; charset=utf-8" }, body: PAGE };
   }
 
+  let userId = "";
   if (path.startsWith("/api/")) {
-    const userId = await userIdFrom(event.headers?.authorization);
-    if (!userId) {
+    const verified = await userIdFrom(event.headers?.authorization);
+    if (!verified) {
       return json(401, { error: "Sign in required." }, { "www-authenticate": "Bearer" });
     }
+    userId = verified;
+  }
+
+  if (method === "GET" && path === "/api/profile") {
+    return json(200, { profile: await getProfile(userId) });
+  }
+
+  if (method === "PUT" && path === "/api/profile") {
+    let githubUsername: unknown;
+    try {
+      githubUsername = JSON.parse(event.body ?? "{}").githubUsername;
+    } catch {
+      return json(400, { error: "Body must be JSON." });
+    }
+    if (typeof githubUsername !== "string" || !GITHUB_USERNAME.test(githubUsername)) {
+      return json(400, { error: "Enter a valid GitHub username." });
+    }
+    return json(200, { profile: await putProfile(userId, githubUsername) });
   }
 
   if (method === "POST" && path === "/api/draft") {
