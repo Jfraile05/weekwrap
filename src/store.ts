@@ -12,6 +12,7 @@ export type Profile = {
 };
 
 export type Wrap = {
+  userId?: string;
   username: string;
   createdAt: string;
   markdown: string;
@@ -26,12 +27,13 @@ export async function save(wrap: Wrap): Promise<void> {
   await doc.send(new PutCommand({ TableName: TABLE, Item: { ...wrap, expiresAt } }));
 }
 
-export async function history(username: string, limit = 5): Promise<Wrap[]> {
+export async function history(userId: string, limit = 5): Promise<Wrap[]> {
   const out = await doc.send(
     new QueryCommand({
       TableName: TABLE,
-      KeyConditionExpression: "username = :u",
-      ExpressionAttributeValues: { ":u": username.toLowerCase() },
+      IndexName: "byUser",
+      KeyConditionExpression: "userId = :u",
+      ExpressionAttributeValues: { ":u": userId },
       ScanIndexForward: false,
       Limit: limit,
     }),

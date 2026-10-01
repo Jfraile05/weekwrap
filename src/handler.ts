@@ -52,12 +52,11 @@ export async function handler(event: FunctionUrlEvent & ScheduledEvent) {
 
   if (method === "POST" && path === "/api/draft") {
     try {
-      const { username, days } = JSON.parse(event.body ?? "{}");
-      if (typeof username !== "string" || !/^[A-Za-z0-9-]{1,39}$/.test(username)) {
-        return json(400, { error: "Enter a valid GitHub username." });
-      }
+      const { days } = JSON.parse(event.body ?? "{}");
+      const profile = await getProfile(userId);
+      if (!profile) return json(409, { error: "Link your GitHub username in settings first." });
       const window = [7, 14, 30].includes(days) ? days : 7;
-      const wrap = await generate(username, window, "web");
+      const wrap = await generate(profile.githubUsername, window, "web", userId);
       return json(200, wrap);
     } catch (err) {
       return json(502, { error: (err as Error).message });
@@ -65,15 +64,13 @@ export async function handler(event: FunctionUrlEvent & ScheduledEvent) {
   }
 
   if (method === "GET" && path === "/api/history") {
-    const username = new URLSearchParams(event.rawQueryString ?? "").get("username");
-    if (!username) return json(400, { error: "username query parameter is required." });
-    return json(200, { items: await history(username) });
+    return json(200, { items: await history(userId) });
   }
 
   return json(404, { error: "Not found." });
 }
 
-async function generate(username: string, days: number, trigger: "web" | "schedule") {
+async function generate(username: string, days: number, trigger: "web" | "schedule", userId?: string) {
   const activity = await gather(username, days);
   const markdown = await draft(activity);
   const wrap = {
@@ -83,6 +80,7 @@ async function generate(username: string, days: number, trigger: "web" | "schedu
     eventCount: activity.lines.length,
     repos: activity.repos,
     trigger,
+    ...(userId ? { userId } : {}),
   };
   await save(wrap);
   return wrap;

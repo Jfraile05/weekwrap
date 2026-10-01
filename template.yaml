@@ -37,11 +37,22 @@ Resources:
           AttributeType: S
         - AttributeName: createdAt
           AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
       KeySchema:
         - AttributeName: username
           KeyType: HASH
         - AttributeName: createdAt
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: byUser
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
