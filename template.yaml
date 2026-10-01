@@ -15,6 +15,10 @@ Parameters:
     Type: String
     Default: cron(0 21 ? * FRI *)
     Description: When the weekly run fires. Default is Friday 21:00 UTC (5pm ET).
+  AppUrl:
+    Type: String
+    Default: https://localhost/
+    Description: Public URL of the app, with the trailing slash. Cognito redirects back here after sign-in. Deploy once, copy the AppUrl output here, then deploy again.
 
 Globals:
   Function:
@@ -42,6 +46,41 @@ Resources:
         AttributeName: expiresAt
         Enabled: true
 
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: weekwrap
+      UserPoolTier: ESSENTIALS
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Sub weekwrap-${AWS::AccountId}
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      SupportedIdentityProviders: [COGNITO]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email]
+      CallbackURLs: [!Ref AppUrl]
+      LogoutURLs: [!Ref AppUrl]
+      ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+
   WeekWrapFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -60,6 +99,9 @@ Resources:
           TABLE_NAME: !Ref WrapsTable
           MODEL_ID: !Ref ModelId
           DEFAULT_USERNAME: !Ref DefaultUsername
+          USER_POOL_ID: !Ref UserPool
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          COGNITO_DOMAIN: !Sub ${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com
       FunctionUrlConfig:
         AuthType: NONE
       Policies:
@@ -89,3 +131,6 @@ Outputs:
   TableName:
     Description: DynamoDB table holding saved wraps.
     Value: !Ref WrapsTable
+  UserPoolId:
+    Description: Cognito user pool. Add the cohort here (Users, Create user).
+    Value: !Ref UserPool

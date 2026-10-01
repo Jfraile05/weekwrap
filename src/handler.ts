@@ -2,10 +2,12 @@ import { gather } from "./github.js";
 import { draft } from "./draft.js";
 import { save, history } from "./store.js";
 import { PAGE } from "./page.js";
+import { userIdFrom } from "./auth.js";
 
 type FunctionUrlEvent = {
   requestContext?: { http?: { method: string; path: string } };
   rawQueryString?: string;
+  headers?: Record<string, string | undefined>;
   body?: string;
 };
 
@@ -18,6 +20,13 @@ export async function handler(event: FunctionUrlEvent & ScheduledEvent) {
 
   if (method === "GET" && (path === "/" || path === "")) {
     return { statusCode: 200, headers: { "content-type": "text/html; charset=utf-8" }, body: PAGE };
+  }
+
+  if (path.startsWith("/api/")) {
+    const userId = await userIdFrom(event.headers?.authorization);
+    if (!userId) {
+      return json(401, { error: "Sign in required." }, { "www-authenticate": "Bearer" });
+    }
   }
 
   if (method === "POST" && path === "/api/draft") {
@@ -70,6 +79,6 @@ async function runScheduled(event: ScheduledEvent) {
   return { ok: true, username: wrap.username, eventCount: wrap.eventCount };
 }
 
-function json(statusCode: number, body: unknown) {
-  return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+function json(statusCode: number, body: unknown, headers: Record<string, string> = {}) {
+  return { statusCode, headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) };
 }
