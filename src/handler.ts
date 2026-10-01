@@ -1,7 +1,7 @@
 import { gather } from "./github.js";
 import { draft } from "./draft.js";
 import { save, history, getProfile, putProfile } from "./store.js";
-import { PAGE } from "./page.js";
+import { renderPage } from "./page.js";
 import { userIdFrom } from "./auth.js";
 
 type FunctionUrlEvent = {
@@ -21,7 +21,17 @@ export async function handler(event: FunctionUrlEvent & ScheduledEvent) {
   const { method, path } = event.requestContext.http;
 
   if (method === "GET" && (path === "/" || path === "")) {
-    return { statusCode: 200, headers: { "content-type": "text/html; charset=utf-8" }, body: PAGE };
+    const { html, csp } = renderPage({ authBase: process.env.COGNITO_URL!, clientId: process.env.USER_POOL_CLIENT_ID! });
+    return {
+      statusCode: 200,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": csp,
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+      },
+      body: html,
+    };
   }
 
   let userId = "";

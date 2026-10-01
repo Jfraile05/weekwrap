@@ -124,7 +124,7 @@ Resources:
           DEFAULT_USERNAME: !Ref DefaultUsername
           USER_POOL_ID: !Ref UserPool
           USER_POOL_CLIENT_ID: !Ref UserPoolClient
-          COGNITO_DOMAIN: !Sub ${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com
+          COGNITO_URL: !Sub https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com
       FunctionUrlConfig:
         AuthType: NONE
       Policies:
