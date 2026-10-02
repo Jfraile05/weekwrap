@@ -3,8 +3,9 @@
 Writing the weekly update is the chore. Your commits already say what you did.
 
 WeekWrap reads a week of your public GitHub activity and drafts the update for
-you: what shipped, what is in progress, what is probably next. Type a username,
-get a markdown update you can paste into Slack, email or a status doc.
+you: what shipped, what is in progress, what is probably next. Sign in, link
+your GitHub username once, and get a markdown update you can paste into Slack,
+email or a status doc. Each person only sees their own drafts.
 
 **Live app:** https://wvbubfuvrik4kphcey4uskxvru0eypfj.lambda-url.us-east-1.on.aws/
 
@@ -95,6 +96,7 @@ Stack parameters: `DefaultUsername` (used by the weekly run, empty disables it),
 ## Free tier notes
 
 - Lambda: 1M free requests/month. This uses a handful.
+- Cognito: the Essentials tier is free for the first 10,000 monthly active users.
 - DynamoDB on demand: 25 GB free storage, and a wrap is a few KB.
 - EventBridge scheduled rules: no charge.
 - Bedrock Nova Lite: about 1,500 input tokens per draft, fractions of a cent.

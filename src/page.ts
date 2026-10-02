@@ -51,8 +51,10 @@ const REDIRECT = location.origin + '/';
 const SESSION_KEY = 'weekwrap.session';
 const PKCE_KEY = 'weekwrap.pkce';
 
-let session = null;
-try { session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) {}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { return null; }
+}
+let session = loadSession();
 let notice = '';
 let signInError = '';
 let renderId = 0;
@@ -139,8 +141,15 @@ async function handleCallback() {
 function refreshOnce() {
   if (!session || !session.refresh) return Promise.resolve(false);
   if (!refreshing) {
+    const started = session;
     refreshing = tokenRequest({ grant_type: 'refresh_token', refresh_token: session.refresh })
-      .then((t) => { session = Object.assign({}, session, { access: t.access_token, exp: Date.now() + t.expires_in * 1000 }); persist(); return true; })
+      .then((t) => {
+        // The user may have signed out, or the session may have been dropped, while this was in flight.
+        if (session !== started) return false;
+        session = Object.assign({}, session, { access: t.access_token, exp: Date.now() + t.expires_in * 1000 });
+        persist();
+        return true;
+      })
       .catch(() => false)
       .then((ok) => { refreshing = null; return ok; });
   }
@@ -252,7 +261,7 @@ async function loadHistory(box) {
 async function dashboard(view, id) {
   const profile = (await api('/api/profile')).profile;
   if (id !== renderId) return;
-  if (!profile) { notice = 'Link your GitHub username to get started.'; location.hash = '#/settings'; return; }
+  if (!profile) { notice = 'Link your GitHub username to get started.'; location.replace('#/settings'); return; }
 
   const days = el('select', { id: 'd' }, [
     el('option', { value: '7', text: 'Last 7 days', selected: 'selected' }),
@@ -316,7 +325,7 @@ async function settings(view, id) {
     save.disabled = true;
     try {
       const saved = (await api('/api/profile', { method: 'PUT', body: { githubUsername: input.value.trim() } })).profile;
-      if (!profile) { location.hash = '#/'; return; }
+      if (!profile) { location.replace('#/'); return; }
       msg.className = 'ok';
       msg.textContent = 'Saved. Drafts will use @' + saved.githubUsername + '.';
     } catch (e) { msg.className = 'err'; msg.textContent = e.message; }
@@ -352,6 +361,8 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
+// Coming back from the hosted UI with Back can restore this page from the browser cache, stale.
+window.addEventListener('pageshow', (e) => { if (e.persisted) { session = loadSession(); route(); } });
 handleCallback().then((error) => { signInError = error; route(); });
 `;
 
